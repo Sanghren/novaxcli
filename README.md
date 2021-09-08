@@ -1,5 +1,7 @@
 ## NovaXCli
 
+WARNING - Pretty much work in progress, use at your own risk : x
+
 This small project aims to automate and ease the management of your NovaX planets.
 
 I can't say enough how annoying it is to manage 10+ planets by hands ...
