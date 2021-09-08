@@ -51,9 +51,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // END SETUP CONFIG FROM CMD ARG
 
     // Get Web3 Instance
-    // let web3 = get_web3("ws://localhost:9650/ext/bc/C/ws").await;
     let web3 = get_web3("wss://api.avax.network/ext/bc/C/ws").await;
-    // let web3 = get_web3("wss://avalanche.bouh.io/ext/bc/C/ws").await;
 
     // Instantiate the contracts
     let planet_contract = instantiate_contract(&web3, &Address::from_str("0x0C3b29321611736341609022C23E981AC56E7f96").unwrap(), "abi/novax_planet.abi").await;
@@ -71,107 +69,33 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if fetch_info_mode {
         fetch_info(planet_contract, game_contract, iron_contract, solar_contract, crystal_contract, planets_for_address, wallet_address).await;
     } else if harvest_mode {
-        for planet_id in planets_for_address {
-            let solar_amount_future = game_contract.query("getResourceAmount", (Token::Uint(U256::from(0)), Token::Uint(planet_id)), None, Options::default(), None);
-            let iron_amount_future = game_contract.query("getResourceAmount", (Token::Uint(U256::from(1)), Token::Uint(planet_id)), None, Options::default(), None);
-            let crystal_amount_future = game_contract.query("getResourceAmount", (Token::Uint(U256::from(2)), Token::Uint(planet_id)), None, Options::default(), None);
-
-            let iron_amount: U256 = iron_amount_future.await.unwrap();
-            let solar_amount: U256 = solar_amount_future.await.unwrap();
-            let crystal_amount: U256 = crystal_amount_future.await.unwrap();
+        let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
+        let u64_nonce = nonce.as_u64();
+        let harvest_all = game_contract.abi().functions.get("harvestAll").unwrap().get(0).unwrap().encode_input([].as_ref()).unwrap();
 
 
-            if solar_amount > U256::from(10000000000000000000 as u64) {
-                let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
-                let u64_nonce = nonce.as_u64();
-                let withdraw_solar_future = game_contract.abi().functions.get("withdrawResource").unwrap().get(0).unwrap().encode_input([Token::Uint(U256::from(0)), Token::Uint(U256::from(solar_amount)), Token::Uint(planet_id)].as_ref()).unwrap();
+        let transaction = TransactionParameters {
+            nonce: Some(U256::from(u64_nonce)),
+            to: Some(game_contract.address()),
+            value: Default::default(),
+            gas_price: Some(gas_price),
+            gas: 500_000.into(),
+            data: Bytes::from(harvest_all.clone()),
+            chain_id: Some(43114_u64),
+            transaction_type: None,
+            access_list: None,
+        };
+        let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
 
+        let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
 
-                let transaction = TransactionParameters {
-                    nonce: Some(U256::from(u64_nonce)),
-                    to: Some(game_contract.address()),
-                    value: Default::default(),
-                    gas_price: Some(U256::from(85000000000 as u64)),
-                    gas: 500_000.into(),
-                    data: Bytes::from(withdraw_solar_future.clone()),
-                    chain_id: Some(43114_u64),
-                    transaction_type: None,
-                    access_list: None,
-                };
-                let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
+        let mut tx_status = web3.eth().transaction_receipt(res).await?;
 
-                let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
-
-                let mut tx_status = web3.eth().transaction_receipt(res).await?;
-
-                while !tx_status.is_some() || tx_status.unwrap().status == Some(U64::from(0)) {
-                    println!("{:?} -- Withdrawal tx for {} solar resource on planet {} -- {:?}", time::Instant::now(), solar_amount, planet_id, res);
-                    tx_status = web3.eth().transaction_receipt(res).await?;
-                    let delay = time::Duration::from_secs(3);
-                    thread::sleep(delay);
-                }
-            }
-
-            if iron_amount > U256::from(10000000000000000000 as u64) {
-                let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
-                let u64_nonce = nonce.as_u64();
-                let withdraw_iron_future = game_contract.abi().functions.get("withdrawResource").unwrap().get(0).unwrap().encode_input([Token::Uint(U256::from(1)), Token::Uint(U256::from(iron_amount)), Token::Uint(planet_id)].as_ref()).unwrap();
-
-                let transaction = TransactionParameters {
-                    nonce: Some(U256::from(u64_nonce)),
-                    to: Some(game_contract.address()),
-                    value: Default::default(),
-                    gas_price: Some(U256::from(85000000000 as u64)),
-                    gas: 500_000.into(),
-                    data: Bytes::from(withdraw_iron_future.clone()),
-                    chain_id: Some(43114_u64),
-                    transaction_type: None,
-                    access_list: None,
-                };
-                let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
-
-                let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
-
-                let mut tx_status = web3.eth().transaction_receipt(res).await?;
-
-                while !tx_status.is_some() || tx_status.unwrap().status == Some(U64::from(0)) {
-                    println!("{:?} -- Withdrawal tx for {} iron resource on planet {} -- {:?}", time::Instant::now(), iron_amount, planet_id, res);
-                    tx_status = web3.eth().transaction_receipt(res).await?;
-                    let delay = time::Duration::from_secs(3);
-                    thread::sleep(delay);
-                }
-            }
-
-
-            if crystal_amount > U256::from(100000000000000000 as u64) {
-                let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
-                let u64_nonce = nonce.as_u64();
-                let withdraw_crystal_future = game_contract.abi().functions.get("withdrawResource").unwrap().get(0).unwrap().encode_input([Token::Uint(U256::from(2)), Token::Uint(U256::from(crystal_amount)), Token::Uint(planet_id)].as_ref()).unwrap();
-
-                let transaction = TransactionParameters {
-                    nonce: Some(U256::from(u64_nonce)),
-                    to: Some(game_contract.address()),
-                    value: Default::default(),
-                    gas_price: Some(U256::from(85000000000 as u64)),
-                    gas: 500_000.into(),
-                    data: Bytes::from(withdraw_crystal_future.clone()),
-                    chain_id: Some(43114_u64),
-                    transaction_type: None,
-                    access_list: None,
-                };
-                let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
-
-                let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
-
-                let mut tx_status = web3.eth().transaction_receipt(res).await?;
-
-                while !tx_status.is_some() || tx_status.unwrap().status == Some(U64::from(0)) {
-                    println!("{:?} -- Withdrawal tx for {} crystal resource on planet {} -- {:?}", time::Instant::now(), crystal_amount, planet_id, res);
-                    tx_status = web3.eth().transaction_receipt(res).await?;
-                    let delay = time::Duration::from_secs(3);
-                    thread::sleep(delay);
-                }
-            }
+        while !tx_status.is_some() || tx_status.unwrap().status == Some(U64::from(0)) {
+            println!("{:?} -- Harvest All tx  -- {:?}", time::Instant::now(), res);
+            tx_status = web3.eth().transaction_receipt(res).await?;
+            let delay = time::Duration::from_secs(3);
+            thread::sleep(delay);
         }
     } else if upgrade_mode {
         for planet_id in planets_for_address {
@@ -204,7 +128,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         nonce: Some(U256::from(u64_nonce)),
                         to: Some(game_contract.address()),
                         value: Default::default(),
-                        gas_price: Some(U256::from(85000000000 as u64)),
+                        gas_price: Some(gas_price),
                         gas: 500_000.into(),
                         data: Bytes::from(level_up_structure.clone()),
                         chain_id: Some(43114_u64),
@@ -250,7 +174,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         nonce: Some(U256::from(u64_nonce)),
                         to: Some(game_contract.address()),
                         value: Default::default(),
-                        gas_price: Some(U256::from(85000000000 as u64)),
+                        gas_price: Some(gas_price),
                         gas: 500_000.into(),
                         data: Bytes::from(level_up_structure.clone()),
                         chain_id: Some(43114_u64),
@@ -296,7 +220,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         nonce: Some(U256::from(u64_nonce)),
                         to: Some(game_contract.address()),
                         value: Default::default(),
-                        gas_price: Some(U256::from(85000000000 as u64)),
+                        gas_price: Some(gas_price),
                         gas: 500_000.into(),
                         data: Bytes::from(level_up_structure.clone()),
                         chain_id: Some(43114_u64),
