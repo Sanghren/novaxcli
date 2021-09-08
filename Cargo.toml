@@ -1,0 +1,15 @@
+[package]
+name = "NovaXCli"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hex-literal = "0.3.1"
+hex = "0.4.3"
+reqwest = "0.9.3"
+secp256k1 = "0.20.3"
+serde = "1.0.125"
+tokio = { version = "1.0", features = ["full", "rt"] }
+web3 = { version = "0.17.0", default-features = false, features = ["signing", "http", "ws-tokio", "ws-tls-tokio"] }
