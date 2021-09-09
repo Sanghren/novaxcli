@@ -4,7 +4,7 @@ use web3::transports::WebSocket;
 use web3::ethabi::{Address, Token};
 use std::error::Error;
 use std::str::FromStr;
-use web3::ethabi::ethereum_types::{U256, U64};
+use web3::ethabi::ethereum_types::{U256, U64, H160};
 use std::ops::{Add, Mul};
 use serde::Deserialize;
 use serde::Serialize;
@@ -72,14 +72,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     } else if harvest_mode {
         let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
         let u64_nonce = nonce.as_u64();
-        let harvest_all = game_contract.abi().functions.get("harvestAll").unwrap().get(0).unwrap().encode_input([].as_ref()).unwrap();
+        let mut tokens_array_planets_id: Vec<Token> = Vec::new();
+
+        for planet_id in planets_for_address {
+            tokens_array_planets_id.push(Token::Uint(planet_id));
+        }
+
+        let harvest_all = game_contract.abi().functions.get("harvestAll").unwrap().get(0).unwrap().encode_input([Token::Array(tokens_array_planets_id)].as_ref()).unwrap();
+
+        let vec = harvest_all.clone();
+        let bytes = Bytes::from(vec);
+        let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
 
         let transaction = TransactionParameters {
             nonce: Some(U256::from(u64_nonce)),
             to: Some(game_contract.address()),
             value: Default::default(),
             gas_price: Some(gas_price),
-            gas: 1_000_000.into(),
+            gas: estimated_gas_usage,
             data: Bytes::from(harvest_all.clone()),
             chain_id: Some(43114_u64),
             transaction_type: None,
@@ -124,12 +134,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     let u64_nonce = nonce.as_u64();
                     let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("s".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
 
+                    let vec = level_up_structure.clone();
+                    let bytes = Bytes::from(vec);
+                    let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+
                     let transaction = TransactionParameters {
                         nonce: Some(U256::from(u64_nonce)),
                         to: Some(game_contract.address()),
                         value: Default::default(),
                         gas_price: Some(gas_price),
-                        gas: 1_000_000.into(),
+                        gas: estimated_gas_usage,
                         data: Bytes::from(level_up_structure.clone()),
                         chain_id: Some(43114_u64),
                         transaction_type: None,
@@ -174,12 +188,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     let u64_nonce = nonce.as_u64();
                     let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("m".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
 
+                    let vec = level_up_structure.clone();
+                    let bytes = Bytes::from(vec);
+                    let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+
                     let transaction = TransactionParameters {
                         nonce: Some(U256::from(u64_nonce)),
                         to: Some(game_contract.address()),
                         value: Default::default(),
                         gas_price: Some(gas_price),
-                        gas: 1_000_000.into(),
+                        gas: estimated_gas_usage,
                         data: Bytes::from(level_up_structure.clone()),
                         chain_id: Some(43114_u64),
                         transaction_type: None,
@@ -224,12 +242,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     let u64_nonce = nonce.as_u64();
                     let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("c".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
 
+                    let vec = level_up_structure.clone();
+                    let bytes = Bytes::from(vec);
+                    let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+
                     let transaction = TransactionParameters {
                         nonce: Some(U256::from(u64_nonce)),
                         to: Some(game_contract.address()),
                         value: Default::default(),
                         gas_price: Some(gas_price),
-                        gas: 1_000_000.into(),
+                        gas: estimated_gas_usage,
                         data: Bytes::from(level_up_structure.clone()),
                         chain_id: Some(43114_u64),
                         transaction_type: None,
@@ -259,6 +281,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+async fn get_gas_usage_estimation(wallet_address: H160, mut gas_price: U256, web3: &Web3<WebSocket>, game_contract: &Contract<WebSocket>, bytes: Bytes) -> U256 {
+    let estimated_gas_price = web3.eth().estimate_gas(
+        CallRequest {
+            from: Some(wallet_address),
+            to: Some(game_contract.address()),
+            gas: None,
+            gas_price: Some(gas_price),
+            value: None,
+            data: Some(bytes),
+            transaction_type: None,
+            access_list: None,
+        },
+        None).await.unwrap();
+
+    estimated_gas_price
 }
 
 async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contract<WebSocket>, iron_contract: Contract<WebSocket>, solar_contract: Contract<WebSocket>, crystal_contract: Contract<WebSocket>, planets_for_address: Vec<U256>, wallet_address: Address) -> Result<(), Box<dyn Error>> {
