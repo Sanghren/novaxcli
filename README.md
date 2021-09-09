@@ -6,16 +6,44 @@ This small project aims to automate and ease the management of your NovaX planet
 
 I can't say enough how annoying it is to manage 10+ planets by hands ...
 
-### How to
+### How to run it
 
-I'll try to build a bin so you don't have to compile it yourself, but in the meantime you can run (with rust installed)
-the project like this :
+For now the only way to run NOvaXCli is by cloning the repo locally and building it from source.
+For that you will need to setup Rust (https://www.rust-lang.org/tools/install)
 
-- run --package NovaXCli --bin NovaXCli YOUR_ADDRESS PKEY_OF_THIS_ADDRESS GAS_PRICE COMMAND OPTIONAL_COMMAND
+Once this is done, go into the folder, and run `cargo run --package NovaXCli --bin NovaXCli YOUR_ADDRESS PRIVATE_KEY_OF_THIS_ADDRESS GAS_PRICE_IN_WEI COMMAND (OPTIONAL_COMMAND`
 
-Where you have 3 choices for COMMAND :
-- fetchInfo
-- harvestAll
-- upgradeMode
-  - `run --package NovaXCli --bin NovaXCli 0x111111 blablabla 85000000000 upgradeMode 2 true true false` <- This will launch the upgrade mode, and it will upgrade buildings on your planets to max level 2 ! If you want to be able to upgrade them to level 3, then change the param to 3 ...
-  - the last 3 parameters will enable (or not) the upgrade of respectively : solar / mine and crystal buildings .
+Here's a quick overview of the different commands you can run.
+
+#### fetchInfo
+
+`cargo run --package NovaXCli --bin NovaXCli YOUR_ADDRESS PRIVATE_KEY_OF_THIS_ADDRESS GAS_PRICE_IN_WEI fetchInfo`
+
+
+This command will go over all your planets, fetching the pending resources and display that to you.
+
+#### harvestAll
+
+`cargo run --package NovaXCli --bin NovaXCli YOUR_ADDRESS PRIVATE_KEY_OF_THIS_ADDRESS GAS_PRICE_IN_WEI harvestAll`
+
+This command will simply trigger a call to the `harvestAll` function.
+
+#### upgradeMode
+
+`cargo run --package NovaXCli --bin NovaXCli YOUR_ADDRESS PRIVATE_KEY_OF_THIS_ADDRESS GAS_PRICE_IN_WEI upgradeMode true true true 3`
+
+This command will trigger an upgrade on the buildings of your planets. It will only upgrade the buildings that are below
+a certain level (the last parameter in the example command above) .
+
+You can alos precise which building you want to upgrade (the 3 boolean parameters in the command above).
+
+Where the first one is for the solar building, second one for the mine and the last one for the crystal lab.
+
+### ToDo
+- [] Build a bin
+- [] Experiment with [Rust Tui](https://github.com/fdehau/tui-rs)
+- [] Improve the logging a bit more
+
+### Donation
+
+This tool is entirely free, if you wanna say 'thanks' here's my Avalanche's CCHain address -> 0x19E13130738568a964f7C7Eb5D11fdc72271ae0F .
