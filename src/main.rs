@@ -1,3 +1,5 @@
+mod utils;
+
 use std::{env, time, thread};
 use web3::Web3;
 use web3::transports::WebSocket;
@@ -18,6 +20,7 @@ use web3::{
 use secp256k1::SecretKey;
 use hex_literal::hex;
 use web3::types::CallRequest;
+use crate::utils::{get_web3, instantiate_contract, ResponseApi};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -444,45 +447,5 @@ async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contrac
 }
 
 
-pub async fn instantiate_contract(web3: &Web3<WebSocket>, contract_address: &Address, abi_path: &str) -> Contract<WebSocket> {
-    let vec = std::fs::read(abi_path).unwrap();
-    Contract::from_json(
-        web3.eth(),
-        *contract_address,
-        vec.as_slice(),
-    ).unwrap()
-}
 
-pub async fn get_web3(avalanche_go_url: &str) -> Web3<WebSocket> {
-    let ws = web3::transports::WebSocket::new(avalanche_go_url)
-        .await
-        .unwrap();
-    web3::Web3::new(ws)
-}
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-struct ResponseApi {
-    planetNo: String,
-    coordinate: String,
-    description: String,
-    external_url: String,
-    image: String,
-    name: String,
-    attributes: Attributes,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-struct Attributes {
-    #[serde(rename(deserialize = "0"))]
-    attribute_0: Attribute,
-    #[serde(rename(deserialize = "1"))]
-    attribute_1: Attribute,
-    #[serde(rename(deserialize = "2"))]
-    attribute_2: Attribute,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-struct Attribute {
-    trait_type: String,
-    value: u32,
-}
