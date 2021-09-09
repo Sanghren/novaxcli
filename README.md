@@ -4,6 +4,8 @@ WARNING - Pretty much work in progress, use at your own risk : x
 
 This small project aims to automate and ease the management of your NovaX planets.
 
+[NovaX](https://novaxgame.com/) is a game running on [Avalanche](https://docs.avax.network/)'s C Chain.
+
 I can't say enough how annoying it is to manage 10+ planets by hands ...
 
 ### How to run it
