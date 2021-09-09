@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let byte_pkey = hex::decode(args.get(2).unwrap())?;
 
     let mut _ppkey = SecretKey::from_slice(byte_pkey.as_slice()).unwrap();
-    let mut gas_price = U256::from_str(args.get(3).unwrap())?;
+    let mut gas_price = U256::from(args.get(3).unwrap().parse::<i64>()?);
 
     if args.len() > 1 {
         let cmd = args.get(4).unwrap();
