@@ -165,9 +165,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     if tx_status.unwrap().status == Some(U64::from(0)) {
                         panic!("Transaction status -- failed");
                     }
+                } else {
+                    println!("We don't have enough resources to perform this upgrade");
                 }
 
                 println!("Cost for upgrading solar panel for planet {} -- {:?}", planet_id, upgrade_cost);
+            } else {
+                println!("Building on this planet is already at the wanted level");
             }
 
             if price_response.attributes.attribute_1.value < threshold {
@@ -219,9 +223,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     if tx_status.unwrap().status == Some(U64::from(0)) {
                         panic!("Transaction status -- failed");
                     }
+                } else {
+                    println!("We don't have enough resources to perform this upgrade");
                 }
 
                 println!("Cost for upgrading iron mine for planet {} -- {:?}", planet_id, upgrade_cost);
+            } else {
+                println!("Building on this planet is already at the wanted level");
             }
 
             if price_response.attributes.attribute_2.value < threshold {
@@ -273,9 +281,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     if tx_status.unwrap().status == Some(U64::from(0)) {
                         panic!("Transaction status -- failed");
                     }
+                } else {
+                    println!("We don't have enough resources to perform this upgrade");
                 }
 
                 println!("Cost for upgrading crystal laboratory for planet {} -- {:?}", planet_id, upgrade_cost);
+            } else {
+                println!("Building on this planet is already at the wanted level");
             }
         }
     }
