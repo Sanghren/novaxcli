@@ -2,9 +2,9 @@ use serde::Deserialize;
 use serde::Serialize;
 use web3::Web3;
 use web3::transports::WebSocket;
-use web3::ethabi::{Address};
+use web3::ethabi::{Address, Token};
 use web3::types::{Bytes, BlockNumber};
-use web3::contract::Contract;
+use web3::contract::{Contract, Options};
 use web3::types::CallRequest;
 use web3::ethabi::ethereum_types::{H160, U256};
 
@@ -73,4 +73,34 @@ pub async fn get_current_nonce(wallet_address: H160, web3: &Web3<WebSocket>) -> 
     let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
     let u64_nonce = nonce.as_u64();
     u64_nonce
+}
+
+pub async fn fetch_current_resources(wallet_address: H160, iron_contract: &Contract<WebSocket>, solar_contract: &Contract<WebSocket>, crystal_contract: &Contract<WebSocket>, upgrade_cost: &Vec<U256>) -> (U256, U256, U256, f64, f64, f64, f64, f64, f64) {
+    let wallet_iron_amount_future = iron_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
+    let wallet_iron_amount: U256 = wallet_iron_amount_future.await.unwrap();
+    let solar_amount_future = solar_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
+    let solar_amount: U256 = solar_amount_future.await.unwrap();
+    let crystal_amount_future = crystal_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
+    let crystal_amount: U256 = crystal_amount_future.await.unwrap();
+
+    let iron_amount_decimals = (wallet_iron_amount.as_u128() as f64
+        / (10_u64.pow(18 as u32)) as f64)
+        as f64;
+    let solar_amount_decimals = (solar_amount.as_u128() as f64
+        / (10_u64.pow(18 as u32)) as f64)
+        as f64;
+    let crystal_amount_decimals = (crystal_amount.as_u128() as f64
+        / (10_u64.pow(18 as u32)) as f64)
+        as f64;
+
+    let upgrade_iron_amount_decimals = (upgrade_cost.get(1).unwrap().as_u128() as f64
+        / (10_u64.pow(18 as u32)) as f64)
+        as f64;
+    let upgrade_solar_amount_decimals = (upgrade_cost.get(0).unwrap().as_u128() as f64
+        / (10_u64.pow(18 as u32)) as f64)
+        as f64;
+    let upgrade_crystal_amount_decimals = (upgrade_cost.get(2).unwrap().as_u128() as f64
+        / (10_u64.pow(18 as u32)) as f64)
+        as f64;
+    (wallet_iron_amount, solar_amount, crystal_amount, iron_amount_decimals, solar_amount_decimals, crystal_amount_decimals, upgrade_iron_amount_decimals, upgrade_solar_amount_decimals, upgrade_crystal_amount_decimals)
 }

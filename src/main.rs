@@ -20,7 +20,7 @@ use web3::{
 use secp256k1::SecretKey;
 use hex_literal::hex;
 use web3::types::CallRequest;
-use crate::utils::{get_web3, instantiate_contract, ResponseApi, get_gas_usage_estimation, get_current_nonce};
+use crate::utils::{get_web3, instantiate_contract, ResponseApi, get_gas_usage_estimation, get_current_nonce, fetch_current_resources};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -81,288 +81,224 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if fetch_info_mode {
         fetch_info(planet_contract, game_contract, iron_contract, solar_contract, crystal_contract, planets_for_address, wallet_address).await;
     } else if harvest_mode {
-        let u64_nonce = get_current_nonce(wallet_address, &web3).await;
-        let mut tokens_array_planets_id: Vec<Token> = Vec::new();
-
-        for planet_id in planets_for_address {
-            tokens_array_planets_id.push(Token::Uint(planet_id));
-        }
-
-        let harvest_all = game_contract.abi().functions.get("harvestAll").unwrap().get(0).unwrap().encode_input([Token::Array(tokens_array_planets_id)].as_ref()).unwrap();
-
-        let vec = harvest_all.clone();
-        let bytes = Bytes::from(vec);
-        let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
-
-        let transaction = TransactionParameters {
-            nonce: Some(U256::from(u64_nonce)),
-            to: Some(game_contract.address()),
-            value: Default::default(),
-            gas_price: Some(gas_price),
-            gas: estimated_gas_usage,
-            data: Bytes::from(harvest_all.clone()),
-            chain_id: Some(43114_u64),
-            transaction_type: None,
-            access_list: None,
-        };
-        let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
-
-        let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
-
-        let mut tx_status = web3.eth().transaction_receipt(res).await?;
-
-        while !tx_status.is_some() || tx_status.unwrap().status == Some(U64::from(0)) {
-            println!("{:?} -- Harvest All tx  -- {:?}", time::Instant::now(), res);
-            tx_status = web3.eth().transaction_receipt(res).await?;
-            let delay = time::Duration::from_secs(3);
-            thread::sleep(delay);
-        }
+        harvest_all(wallet_address,_ppkey, gas_price, &web3, &game_contract, planets_for_address).await?
     } else if upgrade_mode {
-        for planet_id in planets_for_address {
-            let planet_uri_future = planet_contract.query("tokenURI", Token::Uint(planet_id), None, Options::default(), None);
-            let planet_uri: String = planet_uri_future.await.unwrap();
+        upgrade_buildings(upgrade_solar, upgrade_mine, upgrade_crystal, threshold, wallet_address, _ppkey, gas_price, &web3, planet_contract, &game_contract, &iron_contract, &solar_contract, &crystal_contract, planets_for_address).await?
+    }
 
-            let mut response = reqwest::get(&planet_uri)?;
-            let price_response: ResponseApi = response.json()?;
+    Ok(())
+}
 
-            // 0 is for Solar Panel
-            if upgrade_solar && price_response.attributes.attribute_0.value < threshold {
-                let next_upgrade_level = price_response.attributes.attribute_0.value + 1;
-                let upgrade_cost_future = game_contract.query("resourceInfo", (Token::String("s".to_string()), Token::Uint(U256::from(next_upgrade_level))), None, Options::default(), None);
+async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crystal: bool, threshold: u32, wallet_address: H160, _ppkey: SecretKey, gas_price: U256, web3: &Web3<WebSocket>, planet_contract: Contract<WebSocket>, game_contract: &Contract<WebSocket>, iron_contract: &Contract<WebSocket>, solar_contract: &Contract<WebSocket>, crystal_contract: &Contract<WebSocket>, planets_for_address: Vec<U256>) -> Result<(), Box<dyn Error>> {
+    for planet_id in planets_for_address {
+        let planet_uri_future = planet_contract.query("tokenURI", Token::Uint(planet_id), None, Options::default(), None);
+        let planet_uri: String = planet_uri_future.await.unwrap();
 
-                let mut upgrade_cost: Vec<U256> = upgrade_cost_future.await?;
+        let mut response = reqwest::get(&planet_uri)?;
+        let price_response: ResponseApi = response.json()?;
 
-                let wallet_iron_amount_future = iron_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
-                let wallet_iron_amount: U256 = wallet_iron_amount_future.await.unwrap();
-                let solar_amount_future = solar_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
-                let solar_amount: U256 = solar_amount_future.await.unwrap();
-                let crystal_amount_future = crystal_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
-                let crystal_amount: U256 = crystal_amount_future.await.unwrap();
+        // 0 is for Solar Panel
+        if upgrade_solar && price_response.attributes.attribute_0.value < threshold {
+            let next_upgrade_level = price_response.attributes.attribute_0.value + 1;
+            let upgrade_cost_future = game_contract.query("resourceInfo", (Token::String("s".to_string()), Token::Uint(U256::from(next_upgrade_level))), None, Options::default(), None);
 
-                let iron_amount_decimals = (wallet_iron_amount.as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let solar_amount_decimals = (solar_amount.as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let crystal_amount_decimals = (crystal_amount.as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
+            let mut upgrade_cost: Vec<U256> = upgrade_cost_future.await?;
 
-                let upgrade_iron_amount_decimals = (upgrade_cost.get(1).unwrap().as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let upgrade_solar_amount_decimals = (upgrade_cost.get(0).unwrap().as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let upgrade_crystal_amount_decimals = (upgrade_cost.get(2).unwrap().as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
+            let (wallet_iron_amount, solar_amount, crystal_amount, iron_amount_decimals, solar_amount_decimals, crystal_amount_decimals, upgrade_iron_amount_decimals, upgrade_solar_amount_decimals, upgrade_crystal_amount_decimals) = fetch_current_resources(wallet_address, &iron_contract, &solar_contract, &crystal_contract, &mut upgrade_cost).await;
 
-                if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
-                    let u64_nonce = get_current_nonce(wallet_address, &web3).await;
+            if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
+                let u64_nonce = get_current_nonce(wallet_address, &web3).await;
 
-                    let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("s".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
+                let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("s".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
 
-                    let vec = level_up_structure.clone();
-                    let bytes = Bytes::from(vec);
-                    let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+                let vec = level_up_structure.clone();
+                let bytes = Bytes::from(vec);
+                let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
 
-                    let transaction = TransactionParameters {
-                        nonce: Some(U256::from(u64_nonce)),
-                        to: Some(game_contract.address()),
-                        value: Default::default(),
-                        gas_price: Some(gas_price),
-                        gas: estimated_gas_usage,
-                        data: Bytes::from(level_up_structure.clone()),
-                        chain_id: Some(43114_u64),
-                        transaction_type: None,
-                        access_list: None,
-                    };
-                    let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
+                let transaction = TransactionParameters {
+                    nonce: Some(U256::from(u64_nonce)),
+                    to: Some(game_contract.address()),
+                    value: Default::default(),
+                    gas_price: Some(gas_price),
+                    gas: estimated_gas_usage,
+                    data: Bytes::from(level_up_structure.clone()),
+                    chain_id: Some(43114_u64),
+                    transaction_type: None,
+                    access_list: None,
+                };
+                let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
 
-                    let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
+                let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
 
-                    let mut tx_status = web3.eth().transaction_receipt(res).await?;
+                let mut tx_status = web3.eth().transaction_receipt(res).await?;
 
-                    while !tx_status.is_some() {
-                        println!("{:?} -- Level up solar panel tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
-                        tx_status = web3.eth().transaction_receipt(res).await?;
-                        let delay = time::Duration::from_secs(3);
-                        thread::sleep(delay);
-                    }
-
-                    if tx_status.unwrap().status == Some(U64::from(0)) {
-                        panic!("Transaction status -- failed");
-                    }
-                } else {
-                    println!("We don't have enough resources to perform this upgrade");
-                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
+                while !tx_status.is_some() {
+                    println!("{:?} -- Level up solar panel tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
+                    tx_status = web3.eth().transaction_receipt(res).await?;
+                    let delay = time::Duration::from_secs(3);
+                    thread::sleep(delay);
                 }
 
-                println!("Cost for upgrading solar panel for planet {} -- {:?}", planet_id, upgrade_cost);
-            } else {
-                println!("Building on this planet is already at the wanted level");
-            }
-
-            if upgrade_mine && price_response.attributes.attribute_1.value < threshold {
-                let next_upgrade_level = price_response.attributes.attribute_1.value + 1;
-                let upgrade_cost_future = game_contract.query("resourceInfo", (Token::String("m".to_string()), Token::Uint(U256::from(next_upgrade_level))), None, Options::default(), None);
-
-                let upgrade_cost: Vec<U256> = upgrade_cost_future.await?;
-
-                let wallet_iron_amount_future = iron_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
-                let wallet_iron_amount: U256 = wallet_iron_amount_future.await.unwrap();
-                let solar_amount_future = solar_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
-                let solar_amount: U256 = solar_amount_future.await.unwrap();
-                let crystal_amount_future = crystal_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
-                let crystal_amount: U256 = crystal_amount_future.await.unwrap();
-
-                let iron_amount_decimals = (wallet_iron_amount.as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let solar_amount_decimals = (solar_amount.as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let crystal_amount_decimals = (crystal_amount.as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-
-                let upgrade_iron_amount_decimals = (upgrade_cost.get(1).unwrap().as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let upgrade_solar_amount_decimals = (upgrade_cost.get(0).unwrap().as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let upgrade_crystal_amount_decimals = (upgrade_cost.get(2).unwrap().as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-
-                if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
-                    let u64_nonce = get_current_nonce(wallet_address, &web3).await;
-
-                    let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("m".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
-
-                    let vec = level_up_structure.clone();
-                    let bytes = Bytes::from(vec);
-                    let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
-
-                    let transaction = TransactionParameters {
-                        nonce: Some(U256::from(u64_nonce)),
-                        to: Some(game_contract.address()),
-                        value: Default::default(),
-                        gas_price: Some(gas_price),
-                        gas: estimated_gas_usage,
-                        data: Bytes::from(level_up_structure.clone()),
-                        chain_id: Some(43114_u64),
-                        transaction_type: None,
-                        access_list: None,
-                    };
-                    let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
-
-                    let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
-
-                    let mut tx_status = web3.eth().transaction_receipt(res).await?;
-
-                    while !tx_status.is_some() {
-                        println!("{:?} -- Level up iron mine tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
-                        tx_status = web3.eth().transaction_receipt(res).await?;
-                        let delay = time::Duration::from_secs(3);
-                        thread::sleep(delay);
-                    }
-
-                    if tx_status.unwrap().status == Some(U64::from(0)) {
-                        panic!("Transaction status -- failed");
-                    }
-                } else {
-                    println!("We don't have enough resources to perform this upgrade");
-                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
+                if tx_status.unwrap().status == Some(U64::from(0)) {
+                    panic!("Transaction status -- failed");
                 }
-
-                println!("Cost for upgrading iron mine for planet {} -- {:?}", planet_id, upgrade_cost);
             } else {
-                println!("Building on this planet is already at the wanted level");
+                println!("We don't have enough resources to perform this upgrade");
+                println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
             }
 
-            if upgrade_crystal && price_response.attributes.attribute_2.value < threshold {
-                let next_upgrade_level = price_response.attributes.attribute_2.value + 1;
-                let upgrade_cost_future = game_contract.query("resourceInfo", (Token::String("c".to_string()), Token::Uint(U256::from(next_upgrade_level))), None, Options::default(), None);
-
-                let upgrade_cost: Vec<U256> = upgrade_cost_future.await?;
-
-                let wallet_iron_amount_future = iron_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
-                let wallet_iron_amount: U256 = wallet_iron_amount_future.await.unwrap();
-                let solar_amount_future = solar_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
-                let solar_amount: U256 = solar_amount_future.await.unwrap();
-                let crystal_amount_future = crystal_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
-                let crystal_amount: U256 = crystal_amount_future.await.unwrap();
-
-                let iron_amount_decimals = (wallet_iron_amount.as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let solar_amount_decimals = (solar_amount.as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let crystal_amount_decimals = (crystal_amount.as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-
-                let upgrade_iron_amount_decimals = (upgrade_cost.get(1).unwrap().as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let upgrade_solar_amount_decimals = (upgrade_cost.get(0).unwrap().as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-                let upgrade_crystal_amount_decimals = (upgrade_cost.get(2).unwrap().as_u128() as f64
-                    / (10_u64.pow(18 as u32)) as f64)
-                    as f64;
-
-                if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
-                    let u64_nonce = get_current_nonce(wallet_address, &web3).await;
-
-                    let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("c".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
-
-                    let vec = level_up_structure.clone();
-                    let bytes = Bytes::from(vec);
-                    let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
-
-                    let transaction = TransactionParameters {
-                        nonce: Some(U256::from(u64_nonce)),
-                        to: Some(game_contract.address()),
-                        value: Default::default(),
-                        gas_price: Some(gas_price),
-                        gas: estimated_gas_usage,
-                        data: Bytes::from(level_up_structure.clone()),
-                        chain_id: Some(43114_u64),
-                        transaction_type: None,
-                        access_list: None,
-                    };
-                    let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
-
-                    let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
-
-                    let mut tx_status = web3.eth().transaction_receipt(res).await?;
-
-                    while !tx_status.is_some() {
-                        println!("{:?} -- Level up crystal laboratory tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
-                        tx_status = web3.eth().transaction_receipt(res).await?;
-                        let delay = time::Duration::from_secs(3);
-                        thread::sleep(delay);
-                    }
-
-                    if tx_status.unwrap().status == Some(U64::from(0)) {
-                        panic!("Transaction status -- failed");
-                    }
-                } else {
-                    println!("We don't have enough resources to perform this upgrade");
-                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
-                }
-
-                println!("Cost for upgrading crystal laboratory for planet {} -- {:?}", planet_id, upgrade_cost);
-            } else {
-                println!("Building on this planet is already at the wanted level");
-            }
+            println!("Cost for upgrading solar panel for planet {} -- {:?}", planet_id, upgrade_cost);
+        } else {
+            println!("Building on this planet is already at the wanted level");
         }
+
+        if upgrade_mine && price_response.attributes.attribute_1.value < threshold {
+            let next_upgrade_level = price_response.attributes.attribute_1.value + 1;
+            let upgrade_cost_future = game_contract.query("resourceInfo", (Token::String("m".to_string()), Token::Uint(U256::from(next_upgrade_level))), None, Options::default(), None);
+
+            let upgrade_cost: Vec<U256> = upgrade_cost_future.await?;
+
+            let (wallet_iron_amount, solar_amount, crystal_amount, iron_amount_decimals, solar_amount_decimals, crystal_amount_decimals, upgrade_iron_amount_decimals, upgrade_solar_amount_decimals, upgrade_crystal_amount_decimals) = fetch_current_resources(wallet_address, &iron_contract, &solar_contract, &crystal_contract, &upgrade_cost).await;
+
+            if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
+                let u64_nonce = get_current_nonce(wallet_address, &web3).await;
+
+                let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("m".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
+
+                let vec = level_up_structure.clone();
+                let bytes = Bytes::from(vec);
+                let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+
+                let transaction = TransactionParameters {
+                    nonce: Some(U256::from(u64_nonce)),
+                    to: Some(game_contract.address()),
+                    value: Default::default(),
+                    gas_price: Some(gas_price),
+                    gas: estimated_gas_usage,
+                    data: Bytes::from(level_up_structure.clone()),
+                    chain_id: Some(43114_u64),
+                    transaction_type: None,
+                    access_list: None,
+                };
+                let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
+
+                let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
+
+                let mut tx_status = web3.eth().transaction_receipt(res).await?;
+
+                while !tx_status.is_some() {
+                    println!("{:?} -- Level up iron mine tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
+                    tx_status = web3.eth().transaction_receipt(res).await?;
+                    let delay = time::Duration::from_secs(3);
+                    thread::sleep(delay);
+                }
+
+                if tx_status.unwrap().status == Some(U64::from(0)) {
+                    panic!("Transaction status -- failed");
+                }
+            } else {
+                println!("We don't have enough resources to perform this upgrade");
+                println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
+            }
+
+            println!("Cost for upgrading iron mine for planet {} -- {:?}", planet_id, upgrade_cost);
+        } else {
+            println!("Building on this planet is already at the wanted level");
+        }
+
+        if upgrade_crystal && price_response.attributes.attribute_2.value < threshold {
+            let next_upgrade_level = price_response.attributes.attribute_2.value + 1;
+            let upgrade_cost_future = game_contract.query("resourceInfo", (Token::String("c".to_string()), Token::Uint(U256::from(next_upgrade_level))), None, Options::default(), None);
+
+            let upgrade_cost: Vec<U256> = upgrade_cost_future.await?;
+
+            let (wallet_iron_amount, solar_amount, crystal_amount, iron_amount_decimals, solar_amount_decimals, crystal_amount_decimals, upgrade_iron_amount_decimals, upgrade_solar_amount_decimals, upgrade_crystal_amount_decimals) = fetch_current_resources(wallet_address, &iron_contract, &solar_contract, &crystal_contract, &upgrade_cost).await;
+
+            if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
+                let u64_nonce = get_current_nonce(wallet_address, &web3).await;
+
+                let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("c".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
+
+                let vec = level_up_structure.clone();
+                let bytes = Bytes::from(vec);
+                let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+
+                let transaction = TransactionParameters {
+                    nonce: Some(U256::from(u64_nonce)),
+                    to: Some(game_contract.address()),
+                    value: Default::default(),
+                    gas_price: Some(gas_price),
+                    gas: estimated_gas_usage,
+                    data: Bytes::from(level_up_structure.clone()),
+                    chain_id: Some(43114_u64),
+                    transaction_type: None,
+                    access_list: None,
+                };
+                let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
+
+                let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
+
+                let mut tx_status = web3.eth().transaction_receipt(res).await?;
+
+                while !tx_status.is_some() {
+                    println!("{:?} -- Level up crystal laboratory tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
+                    tx_status = web3.eth().transaction_receipt(res).await?;
+                    let delay = time::Duration::from_secs(3);
+                    thread::sleep(delay);
+                }
+
+                if tx_status.unwrap().status == Some(U64::from(0)) {
+                    panic!("Transaction status -- failed");
+                }
+            } else {
+                println!("We don't have enough resources to perform this upgrade");
+                println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
+            }
+
+            println!("Cost for upgrading crystal laboratory for planet {} -- {:?}", planet_id, upgrade_cost);
+        } else {
+            println!("Building on this planet is already at the wanted level");
+        }
+    }
+    Ok(())
+}
+
+async fn harvest_all(wallet_address: H160, _ppkey: SecretKey, gas_price: U256, web3: &Web3<WebSocket>, game_contract: &Contract<WebSocket>, planets_for_address: Vec<U256>) -> Result<(), Box<dyn Error>> {
+    let u64_nonce = get_current_nonce(wallet_address, &web3).await;
+    let mut tokens_array_planets_id: Vec<Token> = Vec::new();
+
+    for planet_id in planets_for_address {
+        tokens_array_planets_id.push(Token::Uint(planet_id));
+    }
+
+    let harvest_all = game_contract.abi().functions.get("harvestAll").unwrap().get(0).unwrap().encode_input([Token::Array(tokens_array_planets_id)].as_ref()).unwrap();
+
+    let vec = harvest_all.clone();
+    let bytes = Bytes::from(vec);
+    let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+
+    let transaction = TransactionParameters {
+        nonce: Some(U256::from(u64_nonce)),
+        to: Some(game_contract.address()),
+        value: Default::default(),
+        gas_price: Some(gas_price),
+        gas: estimated_gas_usage,
+        data: Bytes::from(harvest_all.clone()),
+        chain_id: Some(43114_u64),
+        transaction_type: None,
+        access_list: None,
+    };
+    let signed_tx = web3.accounts().sign_transaction(transaction, &_ppkey).await.unwrap();
+
+    let res = web3.eth().send_raw_transaction(Bytes::from(signed_tx.raw_transaction)).await?;
+
+    let mut tx_status = web3.eth().transaction_receipt(res).await?;
+
+    while !tx_status.is_some() || tx_status.unwrap().status == Some(U64::from(0)) {
+        println!("{:?} -- Harvest All tx  -- {:?}", time::Instant::now(), res);
+        tx_status = web3.eth().transaction_receipt(res).await?;
+        let delay = time::Duration::from_secs(3);
+        thread::sleep(delay);
     }
 
     Ok(())
