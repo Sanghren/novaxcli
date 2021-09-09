@@ -20,7 +20,7 @@ use web3::{
 use secp256k1::SecretKey;
 use hex_literal::hex;
 use web3::types::CallRequest;
-use crate::utils::{get_web3, instantiate_contract, ResponseApi, get_gas_usage_estimation};
+use crate::utils::{get_web3, instantiate_contract, ResponseApi, get_gas_usage_estimation, get_current_nonce};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -81,8 +81,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if fetch_info_mode {
         fetch_info(planet_contract, game_contract, iron_contract, solar_contract, crystal_contract, planets_for_address, wallet_address).await;
     } else if harvest_mode {
-        let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
-        let u64_nonce = nonce.as_u64();
+        let u64_nonce = get_current_nonce(wallet_address, &web3).await;
         let mut tokens_array_planets_id: Vec<Token> = Vec::new();
 
         for planet_id in planets_for_address {
@@ -161,8 +160,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     as f64;
 
                 if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
-                    let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
-                    let u64_nonce = nonce.as_u64();
+                    let u64_nonce = get_current_nonce(wallet_address, &web3).await;
+
                     let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("s".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
 
                     let vec = level_up_structure.clone();
@@ -198,7 +197,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 } else {
                     println!("We don't have enough resources to perform this upgrade");
-                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals,upgrade_iron_amount_decimals,upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
+                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
                 }
 
                 println!("Cost for upgrading solar panel for planet {} -- {:?}", planet_id, upgrade_cost);
@@ -240,8 +239,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     as f64;
 
                 if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
-                    let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
-                    let u64_nonce = nonce.as_u64();
+                    let u64_nonce = get_current_nonce(wallet_address, &web3).await;
+
                     let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("m".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
 
                     let vec = level_up_structure.clone();
@@ -277,7 +276,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 } else {
                     println!("We don't have enough resources to perform this upgrade");
-                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals,upgrade_iron_amount_decimals,upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
+                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
                 }
 
                 println!("Cost for upgrading iron mine for planet {} -- {:?}", planet_id, upgrade_cost);
@@ -319,8 +318,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     as f64;
 
                 if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
-                    let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
-                    let u64_nonce = nonce.as_u64();
+                    let u64_nonce = get_current_nonce(wallet_address, &web3).await;
+
                     let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("c".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
 
                     let vec = level_up_structure.clone();
@@ -356,7 +355,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 } else {
                     println!("We don't have enough resources to perform this upgrade");
-                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals,upgrade_iron_amount_decimals,upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
+                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
                 }
 
                 println!("Cost for upgrading crystal laboratory for planet {} -- {:?}", planet_id, upgrade_cost);
@@ -368,8 +367,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
-
 
 async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contract<WebSocket>, iron_contract: Contract<WebSocket>, solar_contract: Contract<WebSocket>, crystal_contract: Contract<WebSocket>, planets_for_address: Vec<U256>, wallet_address: Address) -> Result<(), Box<dyn Error>> {
     let mut total_iron: f64 = 0.;

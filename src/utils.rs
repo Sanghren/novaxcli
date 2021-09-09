@@ -3,7 +3,7 @@ use serde::Serialize;
 use web3::Web3;
 use web3::transports::WebSocket;
 use web3::ethabi::{Address};
-use web3::types::Bytes;
+use web3::types::{Bytes, BlockNumber};
 use web3::contract::Contract;
 use web3::types::CallRequest;
 use web3::ethabi::ethereum_types::{H160, U256};
@@ -67,4 +67,10 @@ pub async fn get_gas_usage_estimation(wallet_address: H160, mut gas_price: U256,
         None).await.unwrap();
 
     estimated_gas_price
+}
+
+pub async fn get_current_nonce(wallet_address: H160, web3: &Web3<WebSocket>) -> u64 {
+    let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
+    let u64_nonce = nonce.as_u64();
+    u64_nonce
 }
