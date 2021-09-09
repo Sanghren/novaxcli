@@ -27,6 +27,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut harvest_mode = false;
     let mut upgrade_mode = false;
     let mut fetch_info_mode = false;
+    let mut upgrade_solar = false;
+    let mut upgrade_mine = false;
+    let mut upgrade_crystal = false;
     let mut threshold = 2;
 
     if args.len() < 2 {
@@ -45,6 +48,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         } else if cmd.eq_ignore_ascii_case("upgradeMode") {
             upgrade_mode = true;
             threshold = u32::from_str(args.get(5).unwrap())?;
+            upgrade_solar = bool::from_str(args.get(6).unwrap())?;
+            upgrade_mine = bool::from_str(args.get(7).unwrap())?;
+            upgrade_crystal = bool::from_str(args.get(8).unwrap())?;
         } else if cmd.eq_ignore_ascii_case("fetchInfo") {
             fetch_info_mode = true;
         }
@@ -116,7 +122,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let price_response: ResponseApi = response.json()?;
 
             // 0 is for Solar Panel
-            if price_response.attributes.attribute_0.value < threshold {
+            if upgrade_solar && price_response.attributes.attribute_0.value < threshold {
                 let next_upgrade_level = price_response.attributes.attribute_0.value + 1;
                 let upgrade_cost_future = game_contract.query("resourceInfo", (Token::String("s".to_string()), Token::Uint(U256::from(next_upgrade_level))), None, Options::default(), None);
 
@@ -174,7 +180,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("Building on this planet is already at the wanted level");
             }
 
-            if price_response.attributes.attribute_1.value < threshold {
+            if upgrade_mine && price_response.attributes.attribute_1.value < threshold {
                 let next_upgrade_level = price_response.attributes.attribute_1.value + 1;
                 let upgrade_cost_future = game_contract.query("resourceInfo", (Token::String("m".to_string()), Token::Uint(U256::from(next_upgrade_level))), None, Options::default(), None);
 
@@ -232,7 +238,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("Building on this planet is already at the wanted level");
             }
 
-            if price_response.attributes.attribute_2.value < threshold {
+            if upgrade_crystal && price_response.attributes.attribute_2.value < threshold {
                 let next_upgrade_level = price_response.attributes.attribute_2.value + 1;
                 let upgrade_cost_future = game_contract.query("resourceInfo", (Token::String("c".to_string()), Token::Uint(U256::from(next_upgrade_level))), None, Options::default(), None);
 
