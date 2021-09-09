@@ -135,6 +135,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let crystal_amount_future = crystal_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
                 let crystal_amount: U256 = crystal_amount_future.await.unwrap();
 
+                let iron_amount_decimals = (wallet_iron_amount.as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let solar_amount_decimals = (solar_amount.as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let crystal_amount_decimals = (crystal_amount.as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+
+                let upgrade_iron_amount_decimals = (upgrade_cost.get(1).unwrap().as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let upgrade_solar_amount_decimals = (upgrade_cost.get(0).unwrap().as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let upgrade_crystal_amount_decimals = (upgrade_cost.get(2).unwrap().as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+
                 if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
                     let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
                     let u64_nonce = nonce.as_u64();
@@ -173,6 +193,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 } else {
                     println!("We don't have enough resources to perform this upgrade");
+                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals,upgrade_iron_amount_decimals,upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
                 }
 
                 println!("Cost for upgrading solar panel for planet {} -- {:?}", planet_id, upgrade_cost);
@@ -192,6 +213,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let solar_amount: U256 = solar_amount_future.await.unwrap();
                 let crystal_amount_future = crystal_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
                 let crystal_amount: U256 = crystal_amount_future.await.unwrap();
+
+                let iron_amount_decimals = (wallet_iron_amount.as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let solar_amount_decimals = (solar_amount.as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let crystal_amount_decimals = (crystal_amount.as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+
+                let upgrade_iron_amount_decimals = (upgrade_cost.get(1).unwrap().as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let upgrade_solar_amount_decimals = (upgrade_cost.get(0).unwrap().as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let upgrade_crystal_amount_decimals = (upgrade_cost.get(2).unwrap().as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
 
                 if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
                     let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
@@ -231,6 +272,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 } else {
                     println!("We don't have enough resources to perform this upgrade");
+                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals,upgrade_iron_amount_decimals,upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
                 }
 
                 println!("Cost for upgrading iron mine for planet {} -- {:?}", planet_id, upgrade_cost);
@@ -250,6 +292,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let solar_amount: U256 = solar_amount_future.await.unwrap();
                 let crystal_amount_future = crystal_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
                 let crystal_amount: U256 = crystal_amount_future.await.unwrap();
+
+                let iron_amount_decimals = (wallet_iron_amount.as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let solar_amount_decimals = (solar_amount.as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let crystal_amount_decimals = (crystal_amount.as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+
+                let upgrade_iron_amount_decimals = (upgrade_cost.get(1).unwrap().as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let upgrade_solar_amount_decimals = (upgrade_cost.get(0).unwrap().as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
+                let upgrade_crystal_amount_decimals = (upgrade_cost.get(2).unwrap().as_u128() as f64
+                    / (10_u64.pow(18 as u32)) as f64)
+                    as f64;
 
                 if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
                     let nonce = web3.eth().transaction_count(wallet_address, Option::from(BlockNumber::Pending)).await.unwrap();
@@ -289,6 +351,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 } else {
                     println!("We don't have enough resources to perform this upgrade");
+                    println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals,upgrade_iron_amount_decimals,upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
                 }
 
                 println!("Cost for upgrading crystal laboratory for planet {} -- {:?}", planet_id, upgrade_cost);
