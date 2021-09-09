@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // START INSTANTIATION OF ALL CONTRACTS WE WILL USE
     let planet_contract = instantiate_contract(&web3, &Address::from_str("0x0C3b29321611736341609022C23E981AC56E7f96").unwrap(), "abi/novax_planet.abi").await;
     let game_contract = instantiate_contract(&web3, &Address::from_str("0x08776C5830c80e2A0Acd7596BdDfEB3cB19cB5Fd").unwrap(), "abi/novax_game.abi").await;
-    let iron_contract = instantiate_contract(&web3, &Address::from_str("0x4C1057455747e3eE5871D374FdD77A304cE10989").unwrap(), "abi/erc20.abi").await;
+    let metal_contract = instantiate_contract(&web3, &Address::from_str("0x4C1057455747e3eE5871D374FdD77A304cE10989").unwrap(), "abi/erc20.abi").await;
     let solar_contract = instantiate_contract(&web3, &Address::from_str("0xE6eE049183B474ecf7704da3F6F555a1dCAF240F").unwrap(), "abi/erc20.abi").await;
     let crystal_contract = instantiate_contract(&web3, &Address::from_str("0x70b4aE8eb7bd572Fc0eb244Cd8021066b3Ce7EE4").unwrap(), "abi/erc20.abi").await;
     // END INSTANTIATION OF ALL CONTRACTS
@@ -79,17 +79,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Now we trigger the 'command' the user selected.
     if fetch_info_mode {
-        fetch_info(planet_contract, game_contract, iron_contract, solar_contract, crystal_contract, planets_for_address, wallet_address).await;
+        fetch_info(planet_contract, game_contract, metal_contract, solar_contract, crystal_contract, planets_for_address, wallet_address).await;
     } else if harvest_mode {
         harvest_all(wallet_address,_ppkey, gas_price, &web3, &game_contract, planets_for_address).await?
     } else if upgrade_mode {
-        upgrade_buildings(upgrade_solar, upgrade_mine, upgrade_crystal, threshold, wallet_address, _ppkey, gas_price, &web3, planet_contract, &game_contract, &iron_contract, &solar_contract, &crystal_contract, planets_for_address).await?
+        upgrade_buildings(upgrade_solar, upgrade_mine, upgrade_crystal, threshold, wallet_address, _ppkey, gas_price, &web3, planet_contract, &game_contract, &metal_contract, &solar_contract, &crystal_contract, planets_for_address).await?
     }
 
     Ok(())
 }
 
-async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crystal: bool, threshold: u32, wallet_address: H160, _ppkey: SecretKey, gas_price: U256, web3: &Web3<WebSocket>, planet_contract: Contract<WebSocket>, game_contract: &Contract<WebSocket>, iron_contract: &Contract<WebSocket>, solar_contract: &Contract<WebSocket>, crystal_contract: &Contract<WebSocket>, planets_for_address: Vec<U256>) -> Result<(), Box<dyn Error>> {
+async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crystal: bool, threshold: u32, wallet_address: H160, _ppkey: SecretKey, gas_price: U256, web3: &Web3<WebSocket>, planet_contract: Contract<WebSocket>, game_contract: &Contract<WebSocket>, metal_contract: &Contract<WebSocket>, solar_contract: &Contract<WebSocket>, crystal_contract: &Contract<WebSocket>, planets_for_address: Vec<U256>) -> Result<(), Box<dyn Error>> {
     for planet_id in planets_for_address {
         let planet_uri_future = planet_contract.query("tokenURI", Token::Uint(planet_id), None, Options::default(), None);
         let planet_uri: String = planet_uri_future.await.unwrap();
@@ -104,9 +104,9 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
 
             let mut upgrade_cost: Vec<U256> = upgrade_cost_future.await?;
 
-            let (wallet_iron_amount, solar_amount, crystal_amount, iron_amount_decimals, solar_amount_decimals, crystal_amount_decimals, upgrade_iron_amount_decimals, upgrade_solar_amount_decimals, upgrade_crystal_amount_decimals) = fetch_current_resources(wallet_address, &iron_contract, &solar_contract, &crystal_contract, &mut upgrade_cost).await;
+            let (wallet_metal_amount, solar_amount, crystal_amount, metal_amount_decimals, solar_amount_decimals, crystal_amount_decimals, upgrade_metal_amount_decimals, upgrade_solar_amount_decimals, upgrade_crystal_amount_decimals) = fetch_current_resources(wallet_address, &metal_contract, &solar_contract, &crystal_contract, &mut upgrade_cost).await;
 
-            if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
+            if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_metal_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
                 let u64_nonce = get_current_nonce(wallet_address, &web3).await;
 
                 let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("s".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
@@ -144,7 +144,7 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
                 }
             } else {
                 println!("We don't have enough resources to perform this upgrade");
-                println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
+                println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_metal_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, metal_amount_decimals, crystal_amount_decimals);
             }
 
             println!("Cost for upgrading solar panel for planet {} -- {:?}", planet_id, upgrade_cost);
@@ -158,9 +158,9 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
 
             let upgrade_cost: Vec<U256> = upgrade_cost_future.await?;
 
-            let (wallet_iron_amount, solar_amount, crystal_amount, iron_amount_decimals, solar_amount_decimals, crystal_amount_decimals, upgrade_iron_amount_decimals, upgrade_solar_amount_decimals, upgrade_crystal_amount_decimals) = fetch_current_resources(wallet_address, &iron_contract, &solar_contract, &crystal_contract, &upgrade_cost).await;
+            let (wallet_metal_amount, solar_amount, crystal_amount, metal_amount_decimals, solar_amount_decimals, crystal_amount_decimals, upgrade_metal_amount_decimals, upgrade_solar_amount_decimals, upgrade_crystal_amount_decimals) = fetch_current_resources(wallet_address, &metal_contract, &solar_contract, &crystal_contract, &upgrade_cost).await;
 
-            if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
+            if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_metal_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
                 let u64_nonce = get_current_nonce(wallet_address, &web3).await;
 
                 let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("m".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
@@ -187,7 +187,7 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
                 let mut tx_status = web3.eth().transaction_receipt(res).await?;
 
                 while !tx_status.is_some() {
-                    println!("{:?} -- Level up iron mine tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
+                    println!("{:?} -- Level up metal mine tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
                     tx_status = web3.eth().transaction_receipt(res).await?;
                     let delay = time::Duration::from_secs(3);
                     thread::sleep(delay);
@@ -198,10 +198,10 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
                 }
             } else {
                 println!("We don't have enough resources to perform this upgrade");
-                println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
+                println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_metal_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, metal_amount_decimals, crystal_amount_decimals);
             }
 
-            println!("Cost for upgrading iron mine for planet {} -- {:?}", planet_id, upgrade_cost);
+            println!("Cost for upgrading metal mine for planet {} -- {:?}", planet_id, upgrade_cost);
         } else {
             println!("Building on this planet is already at the wanted level");
         }
@@ -212,9 +212,9 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
 
             let upgrade_cost: Vec<U256> = upgrade_cost_future.await?;
 
-            let (wallet_iron_amount, solar_amount, crystal_amount, iron_amount_decimals, solar_amount_decimals, crystal_amount_decimals, upgrade_iron_amount_decimals, upgrade_solar_amount_decimals, upgrade_crystal_amount_decimals) = fetch_current_resources(wallet_address, &iron_contract, &solar_contract, &crystal_contract, &upgrade_cost).await;
+            let (wallet_metal_amount, solar_amount, crystal_amount, metal_amount_decimals, solar_amount_decimals, crystal_amount_decimals, upgrade_metal_amount_decimals, upgrade_solar_amount_decimals, upgrade_crystal_amount_decimals) = fetch_current_resources(wallet_address, &metal_contract, &solar_contract, &crystal_contract, &upgrade_cost).await;
 
-            if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_iron_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
+            if upgrade_cost.get(0).unwrap() <= &solar_amount && upgrade_cost.get(1).unwrap() <= &wallet_metal_amount && upgrade_cost.get(2).unwrap() <= &crystal_amount {
                 let u64_nonce = get_current_nonce(wallet_address, &web3).await;
 
                 let level_up_structure = game_contract.abi().functions.get("levelUpStructure").unwrap().get(0).unwrap().encode_input([Token::String("c".to_string()), Token::Uint(planet_id)].as_ref()).unwrap();
@@ -252,7 +252,7 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
                 }
             } else {
                 println!("We don't have enough resources to perform this upgrade");
-                println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_iron_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, iron_amount_decimals, crystal_amount_decimals);
+                println!("We would need {:?} s / {:?} m / {:?} c but only have {:?} s / {:?} m / {:?} c", upgrade_solar_amount_decimals, upgrade_metal_amount_decimals, upgrade_crystal_amount_decimals, solar_amount_decimals, metal_amount_decimals, crystal_amount_decimals);
             }
 
             println!("Cost for upgrading crystal laboratory for planet {} -- {:?}", planet_id, upgrade_cost);
@@ -304,16 +304,28 @@ async fn harvest_all(wallet_address: H160, _ppkey: SecretKey, gas_price: U256, w
     Ok(())
 }
 
-async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contract<WebSocket>, iron_contract: Contract<WebSocket>, solar_contract: Contract<WebSocket>, crystal_contract: Contract<WebSocket>, planets_for_address: Vec<U256>, wallet_address: Address) -> Result<(), Box<dyn Error>> {
-    let mut total_iron: f64 = 0.;
+async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contract<WebSocket>, metal_contract: Contract<WebSocket>, solar_contract: Contract<WebSocket>, crystal_contract: Contract<WebSocket>, planets_for_address: Vec<U256>, wallet_address: Address) -> Result<(), Box<dyn Error>> {
+    let mut total_metal: f64 = 0.;
+    let mut total_metal_sec: f64 = 0.;
+    let mut total_metal_min: f64 = 0.;
+    let mut total_metal_hour: f64 = 0.;
+    let mut total_metal_day: f64 = 0.;
     let mut total_solar: f64 = 0.;
+    let mut total_solar_sec: f64 = 0.;
+    let mut total_solar_min: f64 = 0.;
+    let mut total_solar_hour: f64 = 0.;
+    let mut total_solar_day: f64 = 0.;
     let mut total_crystal: f64 = 0.;
+    let mut total_crystal_sec: f64 = 0.;
+    let mut total_crystal_min: f64 = 0.;
+    let mut total_crystal_hour: f64 = 0.;
+    let mut total_crystal_day: f64 = 0.;
 
     // We iterate over the planets id list owned by the user.
     for planet_id in planets_for_address {
         // For this planet_id we query the pendin amount of solar / metal / crystal and the URI containing the metadata.
         let solar_amount_future = game_contract.query("getResourceAmount", (Token::Uint(U256::from(0)), Token::Uint(planet_id)), None, Options::default(), None);
-        let iron_amount_future = game_contract.query("getResourceAmount", (Token::Uint(U256::from(1)), Token::Uint(planet_id)), None, Options::default(), None);
+        let metal_amount_future = game_contract.query("getResourceAmount", (Token::Uint(U256::from(1)), Token::Uint(planet_id)), None, Options::default(), None);
         let crystal_amount_future = game_contract.query("getResourceAmount", (Token::Uint(U256::from(2)), Token::Uint(planet_id)), None, Options::default(), None);
         let planet_uri_future = planet_contract.query("tokenURI", Token::Uint(planet_id), None, Options::default(), None);
 
@@ -324,11 +336,11 @@ async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contrac
         let price_response: ResponseApi = response.json()?;
 
 
-        let iron_amount: U256 = iron_amount_future.await.unwrap();
+        let metal_amount: U256 = metal_amount_future.await.unwrap();
         let solar_amount: U256 = solar_amount_future.await.unwrap();
         let crystal_amount: U256 = crystal_amount_future.await.unwrap();
 
-        let iron_amount_decimals = (iron_amount.as_u128() as f64
+        let metal_amount_decimals = (metal_amount.as_u128() as f64
             / (10_u64.pow(18 as u32)) as f64)
             as f64;
         let solar_amount_decimals = (solar_amount.as_u128() as f64
@@ -339,24 +351,42 @@ async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contrac
             as f64;
 
         // We add the amount of 'pending' resource of this planet to the total amount of pending resources across ALL planets.
-        total_iron = total_iron.add(iron_amount_decimals);
+        total_metal = total_metal.add(metal_amount_decimals);
         total_solar = total_solar.add(solar_amount_decimals);
         total_crystal = total_crystal.add(crystal_amount_decimals);
 
-        println!("Planet {} has {} iron (mine lvl {}), {} solar (mine lvl {}) and {} crystal (mine lvl {})", price_response.name, iron_amount_decimals, price_response.attributes.attribute_1.value, solar_amount_decimals, price_response.attributes.attribute_0.value, crystal_amount_decimals, price_response.attributes.attribute_2.value);
+        total_crystal_sec = total_crystal_sec + (1. * price_response.attributes.attribute_0.value as f64 * 0.0001);
+        total_crystal_min = total_crystal_min + (60. * price_response.attributes.attribute_0.value as f64 * 0.0001);
+        total_crystal_hour = total_crystal_hour + (3600. * price_response.attributes.attribute_0.value as f64 * 0.0001);
+        total_crystal_day = total_crystal_day + (86400. * price_response.attributes.attribute_0.value as f64 * 0.0001);
+
+        total_metal_sec = total_metal_sec + (1. * price_response.attributes.attribute_0.value as f64 * 0.002);
+        total_metal_min = total_metal_min + (60. * price_response.attributes.attribute_0.value as f64 * 0.002);
+        total_metal_hour = total_metal_hour + (3600. * price_response.attributes.attribute_0.value as f64 * 0.002);
+        total_metal_day = total_metal_day + (86400. * price_response.attributes.attribute_0.value as f64 * 0.002);
+
+        total_solar_sec = total_solar_sec + (1. * price_response.attributes.attribute_0.value as f64 * 0.001);
+        total_solar_min = total_solar_min + (60. * price_response.attributes.attribute_0.value as f64 * 0.001);
+        total_solar_hour = total_solar_hour + (3600. * price_response.attributes.attribute_0.value as f64 * 0.001);
+        total_solar_day = total_solar_day + (86400. * price_response.attributes.attribute_0.value as f64 * 0.001);
+
+        println!("Planet {} has {} metal (mine lvl {}), {} solar (mine lvl {}) and {} crystal (mine lvl {})", price_response.name, metal_amount_decimals, price_response.attributes.attribute_1.value, solar_amount_decimals, price_response.attributes.attribute_0.value, crystal_amount_decimals, price_response.attributes.attribute_2.value);
     }
 
-    println!("In Total you have {} iron, {} solar and {} crystal pending across your planetes", total_iron, total_solar, total_crystal);
+    println!("In total you have {} metal, {} solar and {} crystal pending across your planetes", total_metal, total_solar, total_crystal);
+    println!("In total you produce {} c/s || {} c/m || {} c/h || {} c/d across all your planets", total_crystal_sec, total_crystal_min, total_crystal_hour, total_crystal_day);
+    println!("In total you produce {} m/s || {} m/m || {} m/h || {} m/d across all your planets", total_metal_sec, total_metal_min, total_metal_hour, total_metal_day);
+    println!("In total you produce {} s/s || {} s/m || {} s/h || {} s/d across all your planets", total_solar_sec, total_solar_min, total_solar_hour, total_solar_day);
 
     // Here we query the current owned amount of each resource (they are ERC20) for the user.
-    let wallet_iron_amount_future = iron_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
-    let wallet_iron_amount: U256 = wallet_iron_amount_future.await.unwrap();
+    let wallet_metal_amount_future = metal_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
+    let wallet_metal_amount: U256 = wallet_metal_amount_future.await.unwrap();
     let solar_amount_future = solar_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
     let solar_amount: U256 = solar_amount_future.await.unwrap();
     let crystal_amount_future = crystal_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
     let crystal_amount: U256 = crystal_amount_future.await.unwrap();
 
-    let iron_amount_decimals = (wallet_iron_amount.as_u128() as f64
+    let metal_amount_decimals = (wallet_metal_amount.as_u128() as f64
         / (10_u64.pow(18 as u32)) as f64)
         as f64;
     let solar_amount_decimals = (solar_amount.as_u128() as f64
@@ -366,7 +396,7 @@ async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contrac
         / (10_u64.pow(18 as u32)) as f64)
         as f64;
 
-    println!("In Total you have {} iron, {} solar and {} crystal in your wallet", iron_amount_decimals, solar_amount_decimals, crystal_amount_decimals);
+    println!("In Total you have {} metal, {} solar and {} crystal in your wallet", metal_amount_decimals, solar_amount_decimals, crystal_amount_decimals);
     Ok(())
 }
 
