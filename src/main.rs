@@ -20,7 +20,7 @@ use web3::{
 use secp256k1::SecretKey;
 use hex_literal::hex;
 use web3::types::CallRequest;
-use crate::utils::{get_web3, instantiate_contract, ResponseApi};
+use crate::utils::{get_web3, instantiate_contract, ResponseApi, get_gas_usage_estimation};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -63,19 +63,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Get Web3 Instance
     let web3 = get_web3("wss://api.avax.network/ext/bc/C/ws").await;
 
-    // Instantiate the contracts
+    // START INSTANTIATION OF ALL CONTRACTS WE WILL USE
     let planet_contract = instantiate_contract(&web3, &Address::from_str("0x0C3b29321611736341609022C23E981AC56E7f96").unwrap(), "abi/novax_planet.abi").await;
     let game_contract = instantiate_contract(&web3, &Address::from_str("0x08776C5830c80e2A0Acd7596BdDfEB3cB19cB5Fd").unwrap(), "abi/novax_game.abi").await;
     let iron_contract = instantiate_contract(&web3, &Address::from_str("0x4C1057455747e3eE5871D374FdD77A304cE10989").unwrap(), "abi/erc20.abi").await;
     let solar_contract = instantiate_contract(&web3, &Address::from_str("0xE6eE049183B474ecf7704da3F6F555a1dCAF240F").unwrap(), "abi/erc20.abi").await;
     let crystal_contract = instantiate_contract(&web3, &Address::from_str("0x70b4aE8eb7bd572Fc0eb244Cd8021066b3Ce7EE4").unwrap(), "abi/erc20.abi").await;
+    // END INSTANTIATION OF ALL CONTRACTS
 
-    // We fetch the planetes owned by the address we passed as first argument
+    // We fetch the planets owned by the address we passed as first argument
     let planets_for_address_future =
         planet_contract.query("tokensOfOwner", Token::Address(wallet_address), None, Options::default(), None);
 
     let planets_for_address: Vec<U256> = planets_for_address_future.await.unwrap();
 
+    // Now we trigger the 'command' the user selected.
     if fetch_info_mode {
         fetch_info(planet_contract, game_contract, iron_contract, solar_contract, crystal_contract, planets_for_address, wallet_address).await;
     } else if harvest_mode {
@@ -367,31 +369,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn get_gas_usage_estimation(wallet_address: H160, mut gas_price: U256, web3: &Web3<WebSocket>, game_contract: &Contract<WebSocket>, bytes: Bytes) -> U256 {
-    let estimated_gas_price = web3.eth().estimate_gas(
-        CallRequest {
-            from: Some(wallet_address),
-            to: Some(game_contract.address()),
-            gas: None,
-            gas_price: Some(gas_price),
-            value: None,
-            data: Some(bytes),
-            transaction_type: None,
-            access_list: None,
-        },
-        None).await.unwrap();
 
-    estimated_gas_price
-}
 
 async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contract<WebSocket>, iron_contract: Contract<WebSocket>, solar_contract: Contract<WebSocket>, crystal_contract: Contract<WebSocket>, planets_for_address: Vec<U256>, wallet_address: Address) -> Result<(), Box<dyn Error>> {
     let mut total_iron: f64 = 0.;
     let mut total_solar: f64 = 0.;
     let mut total_crystal: f64 = 0.;
 
-    // List all pending resources
+    // We iterate over the planets id list owned by the user.
     for planet_id in planets_for_address {
-        // DIsplay info about your planet
+        // For this planet_id we query the pendin amount of solar / metal / crystal and the URI containing the metadata.
         let solar_amount_future = game_contract.query("getResourceAmount", (Token::Uint(U256::from(0)), Token::Uint(planet_id)), None, Options::default(), None);
         let iron_amount_future = game_contract.query("getResourceAmount", (Token::Uint(U256::from(1)), Token::Uint(planet_id)), None, Options::default(), None);
         let crystal_amount_future = game_contract.query("getResourceAmount", (Token::Uint(U256::from(2)), Token::Uint(planet_id)), None, Options::default(), None);
@@ -399,8 +386,10 @@ async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contrac
 
         let planet_uri: String = planet_uri_future.await.unwrap();
 
+        // We make a HTTP GET request to the URL containing the metadata.
         let mut response = reqwest::get(&planet_uri)?;
         let price_response: ResponseApi = response.json()?;
+
 
         let iron_amount: U256 = iron_amount_future.await.unwrap();
         let solar_amount: U256 = solar_amount_future.await.unwrap();
@@ -416,6 +405,7 @@ async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contrac
             / (10_u64.pow(18 as u32)) as f64)
             as f64;
 
+        // We add the amount of 'pending' resource of this planet to the total amount of pending resources across ALL planets.
         total_iron = total_iron.add(iron_amount_decimals);
         total_solar = total_solar.add(solar_amount_decimals);
         total_crystal = total_crystal.add(crystal_amount_decimals);
@@ -425,6 +415,7 @@ async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contrac
 
     println!("In Total you have {} iron, {} solar and {} crystal pending across your planetes", total_iron, total_solar, total_crystal);
 
+    // Here we query the current owned amount of each resource (they are ERC20) for the user.
     let wallet_iron_amount_future = iron_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
     let wallet_iron_amount: U256 = wallet_iron_amount_future.await.unwrap();
     let solar_amount_future = solar_contract.query("balanceOf", Token::Address(wallet_address), None, Options::default(), None);
