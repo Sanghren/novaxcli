@@ -17,6 +17,7 @@ use web3::{
 };
 use secp256k1::SecretKey;
 use hex_literal::hex;
+use web3::types::CallRequest;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -55,7 +56,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Instantiate the contracts
     let planet_contract = instantiate_contract(&web3, &Address::from_str("0x0C3b29321611736341609022C23E981AC56E7f96").unwrap(), "abi/novax_planet.abi").await;
-    let game_contract = instantiate_contract(&web3, &Address::from_str("0x07412D07deC85A17c1D648485AF82d7502540091").unwrap(), "abi/novax_game.abi").await;
+    let game_contract = instantiate_contract(&web3, &Address::from_str("0x08776C5830c80e2A0Acd7596BdDfEB3cB19cB5Fd").unwrap(), "abi/novax_game.abi").await;
     let iron_contract = instantiate_contract(&web3, &Address::from_str("0x4C1057455747e3eE5871D374FdD77A304cE10989").unwrap(), "abi/erc20.abi").await;
     let solar_contract = instantiate_contract(&web3, &Address::from_str("0xE6eE049183B474ecf7704da3F6F555a1dCAF240F").unwrap(), "abi/erc20.abi").await;
     let crystal_contract = instantiate_contract(&web3, &Address::from_str("0x70b4aE8eb7bd572Fc0eb244Cd8021066b3Ce7EE4").unwrap(), "abi/erc20.abi").await;
@@ -73,13 +74,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let u64_nonce = nonce.as_u64();
         let harvest_all = game_contract.abi().functions.get("harvestAll").unwrap().get(0).unwrap().encode_input([].as_ref()).unwrap();
 
-
         let transaction = TransactionParameters {
             nonce: Some(U256::from(u64_nonce)),
             to: Some(game_contract.address()),
             value: Default::default(),
-            gas_price: Some(gas_price),            
-            gas: 2_500_000.into(),
+            gas_price: Some(gas_price),
+            gas: 1_000_000.into(),
             data: Bytes::from(harvest_all.clone()),
             chain_id: Some(43114_u64),
             transaction_type: None,
@@ -128,8 +128,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         nonce: Some(U256::from(u64_nonce)),
                         to: Some(game_contract.address()),
                         value: Default::default(),
-                        gas_price: Some(gas_price),            
-                        gas: 500_000.into(),
+                        gas_price: Some(gas_price),
+                        gas: 1_000_000.into(),
                         data: Bytes::from(level_up_structure.clone()),
                         chain_id: Some(43114_u64),
                         transaction_type: None,
@@ -141,11 +141,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                     let mut tx_status = web3.eth().transaction_receipt(res).await?;
 
-                    while !tx_status.is_some() || tx_status.unwrap().status == Some(U64::from(0)) {
+                    while !tx_status.is_some() {
                         println!("{:?} -- Level up solar panel tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
                         tx_status = web3.eth().transaction_receipt(res).await?;
                         let delay = time::Duration::from_secs(3);
                         thread::sleep(delay);
+                    }
+
+                    if tx_status.unwrap().status == Some(U64::from(0)) {
+                        panic!("Transaction status -- failed");
                     }
                 }
 
@@ -174,8 +178,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         nonce: Some(U256::from(u64_nonce)),
                         to: Some(game_contract.address()),
                         value: Default::default(),
-                        gas_price: Some(gas_price),            
-                        gas: 500_000.into(),
+                        gas_price: Some(gas_price),
+                        gas: 1_000_000.into(),
                         data: Bytes::from(level_up_structure.clone()),
                         chain_id: Some(43114_u64),
                         transaction_type: None,
@@ -187,11 +191,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                     let mut tx_status = web3.eth().transaction_receipt(res).await?;
 
-                    while !tx_status.is_some() || tx_status.unwrap().status == Some(U64::from(0)) {
+                    while !tx_status.is_some() {
                         println!("{:?} -- Level up iron mine tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
                         tx_status = web3.eth().transaction_receipt(res).await?;
                         let delay = time::Duration::from_secs(3);
                         thread::sleep(delay);
+                    }
+
+                    if tx_status.unwrap().status == Some(U64::from(0)) {
+                        panic!("Transaction status -- failed");
                     }
                 }
 
@@ -220,8 +228,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         nonce: Some(U256::from(u64_nonce)),
                         to: Some(game_contract.address()),
                         value: Default::default(),
-                        gas_price: Some(gas_price),            
-                        gas: 500_000.into(),
+                        gas_price: Some(gas_price),
+                        gas: 1_000_000.into(),
                         data: Bytes::from(level_up_structure.clone()),
                         chain_id: Some(43114_u64),
                         transaction_type: None,
@@ -233,11 +241,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                     let mut tx_status = web3.eth().transaction_receipt(res).await?;
 
-                    while !tx_status.is_some() || tx_status.unwrap().status == Some(U64::from(0)) {
+                    while !tx_status.is_some() {
                         println!("{:?} -- Level up crystal laboratory tx to level {} on planet {}", time::Instant::now(), next_upgrade_level, planet_id);
                         tx_status = web3.eth().transaction_receipt(res).await?;
                         let delay = time::Duration::from_secs(3);
                         thread::sleep(delay);
+                    }
+
+                    if tx_status.unwrap().status == Some(U64::from(0)) {
+                        panic!("Transaction status -- failed");
                     }
                 }
 
