@@ -374,6 +374,7 @@ async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contrac
     }
 
     println!("In total you have {} metal, {} solar and {} crystal pending across your planetes", total_metal, total_solar, total_crystal);
+
     println!("In total you produce {} c/s || {} c/m || {} c/h || {} c/d across all your planets", total_crystal_sec, total_crystal_min, total_crystal_hour, total_crystal_day);
     println!("In total you produce {} m/s || {} m/m || {} m/h || {} m/d across all your planets", total_metal_sec, total_metal_min, total_metal_hour, total_metal_day);
     println!("In total you produce {} s/s || {} s/m || {} s/h || {} s/d across all your planets", total_solar_sec, total_solar_min, total_solar_hour, total_solar_day);
@@ -396,7 +397,7 @@ async fn fetch_info(planet_contract: Contract<WebSocket>, game_contract: Contrac
         / (10_u64.pow(18 as u32)) as f64)
         as f64;
 
-    println!("In Total you have {} metal, {} solar and {} crystal in your wallet", metal_amount_decimals, solar_amount_decimals, crystal_amount_decimals);
+    println!("In Total you have {} metal, {} solar and {} crystal in your wallet + pending resources", (metal_amount_decimals + total_metal), (solar_amount_decimals + total_solar), (crystal_amount_decimals + total_crystal));
     Ok(())
 }
 
