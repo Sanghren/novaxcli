@@ -81,7 +81,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if fetch_info_mode {
         fetch_info(planet_contract, game_contract, metal_contract, solar_contract, crystal_contract, planets_for_address, wallet_address).await;
     } else if harvest_mode {
-        harvest_all(wallet_address,_ppkey, gas_price, &web3, &game_contract, planets_for_address).await?
+        harvest_all(wallet_address, _ppkey, gas_price, &web3, &game_contract, planets_for_address).await?
     } else if upgrade_mode {
         upgrade_buildings(upgrade_solar, upgrade_mine, upgrade_crystal, threshold, wallet_address, _ppkey, gas_price, &web3, planet_contract, &game_contract, &metal_contract, &solar_contract, &crystal_contract, planets_for_address).await?
     }
@@ -149,7 +149,7 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
 
             println!("Cost for upgrading solar panel for planet {} -- {:?}", planet_id, upgrade_cost);
         } else {
-            println!("Building on this planet is already at the wanted level");
+            println!("Solar panels on this planet {} are already at the wanted level", planet_id);
         }
 
         if upgrade_mine && price_response.attributes.attribute_1.value < threshold {
@@ -203,7 +203,7 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
 
             println!("Cost for upgrading metal mine for planet {} -- {:?}", planet_id, upgrade_cost);
         } else {
-            println!("Building on this planet is already at the wanted level");
+            println!("Metal mine on this planet {} is already at the wanted level", planet_id);
         }
 
         if upgrade_crystal && price_response.attributes.attribute_2.value < threshold {
@@ -257,7 +257,7 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
 
             println!("Cost for upgrading crystal laboratory for planet {} -- {:?}", planet_id, upgrade_cost);
         } else {
-            println!("Building on this planet is already at the wanted level");
+            println!("Crystal Laboratory on this planet {} is already at the wanted level", planet_id);
         }
     }
     Ok(())
