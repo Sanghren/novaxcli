@@ -1,12 +1,14 @@
 use serde::Deserialize;
 use serde::Serialize;
-use web3::Web3;
+use web3::{Web3, Error};
 use web3::transports::WebSocket;
 use web3::ethabi::{Address, Token};
 use web3::types::{Bytes, BlockNumber};
 use web3::contract::{Contract, Options};
 use web3::types::CallRequest;
 use web3::ethabi::ethereum_types::{H160, U256};
+use std::time::Duration;
+use std::thread;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ResponseApi {
@@ -52,20 +54,30 @@ pub async fn get_web3(avalanche_go_url: &str) -> Web3<WebSocket> {
     web3::Web3::new(ws)
 }
 
-pub async fn get_gas_usage_estimation(wallet_address: H160, mut gas_price: U256, web3: &Web3<WebSocket>, game_contract: &Contract<WebSocket>, bytes: Bytes) -> U256 {
-    let estimated_gas_price = web3.eth().estimate_gas(
-        CallRequest {
-            from: Some(wallet_address),
-            to: Some(game_contract.address()),
-            gas: None,
-            gas_price: Some(gas_price),
-            value: None,
-            data: Some(bytes),
-            transaction_type: None,
-            access_list: None,
-        },
-        None).await.unwrap();
+pub async fn get_gas_usage_estimation(wallet_address: H160, mut gas_price: U256, web3: &Web3<WebSocket>, game_contract: &Contract<WebSocket>, bytes: &Bytes) -> U256 {
+    let mut estimated_gas_price: U256 = U256::from(0);
+    let mut iteration = 0;
+    while iteration < 10 {
+        match web3.eth().estimate_gas(
+            CallRequest {
+                from: Some(wallet_address),
+                to: Some(game_contract.address()),
+                gas: None,
+                gas_price: Some(gas_price),
+                value: None,
+                data: Some(bytes.clone()),
+                transaction_type: None,
+                access_list: None,
+            },
+            None).await {
+            Ok(gas_usage) => { estimated_gas_price = gas_usage; break; },
+            Err(err) => { println!("Iteration {} / 10 -- Error while estimating gas usage for this call on contract {:?} -- Error message : {:?}", iteration,game_contract.address(), err); iteration = iteration + 1; thread::sleep(Duration::new(5,0)) },
+        }
+    }
 
+    if iteration == 10 && estimated_gas_price == U256::from(0) {
+        panic!("Failed to estimate gas usage . Probably this is due to your gas price being too low for the current network base fee. Try later or increase gas price !")
+    }
     estimated_gas_price
 }
 

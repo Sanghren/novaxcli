@@ -113,7 +113,7 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
 
                 let vec = level_up_structure.clone();
                 let bytes = Bytes::from(vec);
-                let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+                let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, &bytes).await;
 
                 let transaction = TransactionParameters {
                     nonce: Some(U256::from(u64_nonce)),
@@ -167,7 +167,7 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
 
                 let vec = level_up_structure.clone();
                 let bytes = Bytes::from(vec);
-                let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+                let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, &bytes).await;
 
                 let transaction = TransactionParameters {
                     nonce: Some(U256::from(u64_nonce)),
@@ -221,7 +221,7 @@ async fn upgrade_buildings(upgrade_solar: bool, upgrade_mine: bool, upgrade_crys
 
                 let vec = level_up_structure.clone();
                 let bytes = Bytes::from(vec);
-                let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+                let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, &bytes).await;
 
                 let transaction = TransactionParameters {
                     nonce: Some(U256::from(u64_nonce)),
@@ -275,7 +275,7 @@ async fn harvest_all(wallet_address: H160, _ppkey: SecretKey, gas_price: U256, w
 
     let vec = harvest_all.clone();
     let bytes = Bytes::from(vec);
-    let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, bytes).await;
+    let estimated_gas_usage = get_gas_usage_estimation(wallet_address, gas_price, &web3, &game_contract, &bytes).await;
 
     let transaction = TransactionParameters {
         nonce: Some(U256::from(u64_nonce)),
