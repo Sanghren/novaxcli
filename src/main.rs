@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // START INSTANTIATION OF ALL CONTRACTS WE WILL USE
     let planet_contract = instantiate_contract(&web3, &Address::from_str("0x0C3b29321611736341609022C23E981AC56E7f96").unwrap(), "abi/novax_planet.abi").await;
-    let game_contract = instantiate_contract(&web3, &Address::from_str("0x08776C5830c80e2A0Acd7596BdDfEB3cB19cB5Fd").unwrap(), "abi/novax_game.abi").await;
+    let game_contract = instantiate_contract(&web3, &Address::from_str("0x2aa2a9ef24a209f47f42Cb97Bd19D881e33F3956").unwrap(), "abi/novax_game.abi").await;
     let metal_contract = instantiate_contract(&web3, &Address::from_str("0x4C1057455747e3eE5871D374FdD77A304cE10989").unwrap(), "abi/erc20.abi").await;
     let solar_contract = instantiate_contract(&web3, &Address::from_str("0xE6eE049183B474ecf7704da3F6F555a1dCAF240F").unwrap(), "abi/erc20.abi").await;
     let crystal_contract = instantiate_contract(&web3, &Address::from_str("0x70b4aE8eb7bd572Fc0eb244Cd8021066b3Ce7EE4").unwrap(), "abi/erc20.abi").await;
