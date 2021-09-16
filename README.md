@@ -35,7 +35,7 @@ This command will simply trigger a call to the `harvestAll` function.
 `cargo run --package NovaXCli --bin NovaXCli YOUR_ADDRESS PRIVATE_KEY_OF_THIS_ADDRESS GAS_PRICE_IN_WEI upgradeMode 3 true true true`
 
 This command will trigger an upgrade on the buildings of your planets. It will only upgrade the buildings that are below
-a certain level (the last parameter in the example command above) .
+a certain level (the number after the 'upgradeMode' in the example above) .
 
 You can also precise which building you want to upgrade (the 3 boolean parameters in the command above).
 
